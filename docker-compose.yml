@@ -5,11 +5,13 @@ services:
     container_name: localstack_main
     ports:
       - "4566:4566"
-      - "4571:4571"
     environment:
-      - SERVICES=s3,dynamodb,lambda,apigateway,sqs,sns
+      - SERVICES=s3,dynamodb,lambda,apigateway,sqs,sns,ec2,iam,vpc,cloudformation,cloudwatch
       - DEBUG=1
       - DATA_DIR=/tmp/localstack/data
+      - DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
     volumes:
-      - "./localstack:/var/lib/localstack"
+      - "./localstack:/var/lib/localstack" # Persist LocalStack state
       - "/var/run/docker.sock:/var/run/docker.sock"
