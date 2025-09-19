@@ -1,0 +1,17 @@
+{
+  "Rules": [
+    {
+      "ID": "ExpireOldVersions",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Status": "Enabled",
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}
