@@ -253,8 +253,95 @@ aws --endpoint-url=http://localhost:4566 ec2 describe-route-tables --profile loc
 
 ---
 
-## **Step 7: Learning Outcomes**
+# **Day 5 – Launching an EC2 Instance in VPC (LocalStack + AWS CLI)**
 
-- Learned how to create a **VPC, subnet, IGW, and route table**.
-- Understood the basic **network architecture** for AWS workloads.
-- Practiced using **AWS CLI with LocalStack** for local testing.
+## **Goal:**
+
+Simulate launching an **EC2 instance** inside your custom VPC and subnet using LocalStack.
+
+---
+
+## **Step 1: Create a Security Group**
+
+Security groups act like a firewall.
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 create-security-group \
+  --group-name MySecurityGroup \
+  --description "Allow SSH and HTTP" \
+  --vpc-id <VPC_ID> \
+  --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=MySG}]' \
+  --profile localstack
+```
+
+Add inbound rules (allow SSH + HTTP):
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 authorize-security-group-ingress \
+  --group-id <SG_ID> \
+  --protocol tcp --port 22 --cidr 0.0.0.0/0 \
+  --profile localstack
+
+aws --endpoint-url=http://localhost:4566 ec2 authorize-security-group-ingress \
+  --group-id <SG_ID> \
+  --protocol tcp --port 80 --cidr 0.0.0.0/0 \
+  --profile localstack
+```
+
+---
+
+## **Step 2: Create a Key Pair (for SSH access)**
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 create-key-pair \
+  --key-name MyKeyPair \
+  --query 'KeyMaterial' \
+  --output text > MyKeyPair.pem \
+  --profile localstack
+```
+
+- Save `MyKeyPair.pem` and `chmod 400 MyKeyPair.pem` if using real AWS.
+- In LocalStack, this is simulated (you won’t SSH into it).
+
+---
+
+## **Step 3: Launch an EC2 Instance**
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 run-instances \
+  --image-id ami-12345678 \
+  --count 1 \
+  --instance-type t2.micro \
+  --key-name MyKeyPair \
+  --security-group-ids <SG_ID> \
+  --subnet-id <SUBNET_ID> \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=MyEC2}]' \
+  --profile localstack
+```
+
+✅ **Notes**:
+
+- LocalStack doesn’t actually boot a VM — it simulates metadata.
+- `ami-12345678` is a placeholder; LocalStack ignores it.
+- The purpose is to **learn how to wire an EC2 into a VPC**.
+
+---
+
+## **Step 4: Verify the Instance**
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 describe-instances \
+  --profile localstack
+```
+
+Expected: You’ll see instance details with **InstanceId, VPC ID, Subnet ID, Security Group**.
+
+---
+
+## **Step 5: Learning Outcomes**
+
+- Understood how **EC2 connects into VPC, subnet, and security groups**.
+- Learned **key pair generation**.
+- Practiced **simulating EC2 launch with LocalStack**.
+
+This builds the **foundation for deploying applications** on AWS.
