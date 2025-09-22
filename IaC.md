@@ -104,7 +104,9 @@ provider "aws" {
   secret_key                  = "test"
   skip_credentials_validation = true
   skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
   s3_use_path_style           = true
+
   endpoints {
     s3 = "http://localhost:4566"
   }
@@ -121,6 +123,12 @@ provider "aws" {
 
 ## 🔹 **Step 4: Create First Resource (S3 Bucket)**
 
+Start localstack using from root:
+
+```
+docker compose up -d
+```
+
 Add this to `main.tf`:
 
 ```hcl
@@ -134,6 +142,14 @@ Now you have **Terraform config** for a bucket.
 ---
 
 ## 🔹 **Step 5: Run Terraform Commands**
+
+GO to terraform folder:
+
+```bash
+cd terraform/
+```
+
+Initialize terraform backend:
 
 ```bash
 terraform init
@@ -156,10 +172,10 @@ terraform apply -auto-approve
 Verify with AWS CLI:
 
 ```bash
-aws --endpoint-url=http://localhost:4566 s3 ls
+aws --endpoint-url=http://localhost:4566 s3 ls --profile localstack
 ```
 
-✅ You should see `day6-terraform-bucket`.
+You should see `day6-terraform-bucket`.
 
 ---
 
@@ -184,6 +200,12 @@ terraform plan
 terraform apply -auto-approve
 ```
 
+Verify with AWS CLI:
+
+```bash
+aws --endpoint-url=http://localhost:4566 s3api get-bucket-tagging --bucket day6-terraform-bucket --profile localstack
+```
+
 Now bucket has tags.
 
 ---
@@ -199,10 +221,10 @@ terraform destroy -auto-approve
 Verify:
 
 ```bash
-aws --endpoint-url=http://localhost:4566 s3 ls
+aws --endpoint-url=http://localhost:4566 s3 ls --profile localstack
 ```
 
-Bucket gone ✅
+Bucket gone
 
 ---
 
