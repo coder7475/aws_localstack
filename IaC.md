@@ -52,7 +52,7 @@ Terraform = Infrastructure as Code (IaC).
   - `terraform apply` → make changes.
   - `terraform destroy` → remove resources.
 
----
+## [![](public/teerraform.png)]
 
 ## **Infrastructure as Code Lifecycle**: From Configuration to Running Resources
 
@@ -213,6 +213,7 @@ Bucket gone ✅
 - How to provision + update + destroy resources.
 - Hands-on IaC with S3 bucket example.
 
-## Practice labs
+## Learn More
 
 - [DevOpsXLabs](https://www.devopsxlabs.com/labs)
+- [Tutorial](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/infrastructure-as-code)
