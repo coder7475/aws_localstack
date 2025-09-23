@@ -209,20 +209,3 @@ To test this configuration:
 3. Apply configuration
 4. Verify resources using AWS CLI with LocalStack endpoints
 5. Clean up with `terraform destroy`
-
-## Contributing
-
-When contributing to this project:
-
-1. Follow Terraform best practices
-2. Update documentation for any changes
-3. Test changes with LocalStack
-4. Use meaningful commit messages
-
-## License
-
-[Add your license information here]
-
----
-
-**Note**: This project is configured for LocalStack development. For production deployments, update the provider configuration to use real AWS endpoints and credentials.

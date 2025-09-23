@@ -235,6 +235,222 @@ Bucket gone
 - How to provision + update + destroy resources.
 - Hands-on IaC with S3 bucket example.
 
+# Day 7 — Provision a VPC + Subnet with Terraform (self-contained)
+
+### Goal
+
+Build a VPC and subnet using Terraform against LocalStack, compare with manual CLI steps, and learn Terraform idempotency/state benefits.
+
+---
+
+### 1) Local prerequisites (one-time)
+
+- LocalStack running on `http://localhost:4566`
+- AWS CLI configured for LocalStack (profile `localstack` with dummy creds)
+- Terraform installed
+
+Verify:
+
+```bash
+docker ps           # localstack container running
+aws --endpoint-url=http://localhost:4566 sts get-caller-identity --profile localstack || true
+terraform -v
+```
+
+---
+
+### 2) Recommended project structure
+
+```
+day07-vpc-terraform/
+├── main.tf
+├── provider.tf
+├── variables.tf
+├── outputs.tf
+└── README.md
+```
+
+---
+
+### 3) Provider config (`provider.tf`)
+
+Use these settings so Terraform does not attempt real AWS account calls:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region                      = "us-east-1"
+  access_key                  = "test"
+  secret_key                  = "test"
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+  s3_use_path_style           = true
+
+  endpoints {
+    ec2 = "http://localhost:4566"
+    iam = "http://localhost:4566"
+    sts = "http://localhost:4566"
+    s3  = "http://localhost:4566"
+  }
+}
+```
+
+---
+
+### 4) VPC & subnet Terraform (`main.tf`)
+
+A minimal, clear example that creates a VPC, a subnet, IGW, route table, route and association:
+
+```hcl
+resource "aws_vpc" "this" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name = var.vpc_name
+  }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = var.public_subnet_cidr
+  availability_zone = var.avail_zone
+  tags = {
+    Name = "${var.vpc_name}-public-subnet"
+  }
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.this.id
+  tags = { Name = "${var.vpc_name}-igw" }
+}
+
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.this.id
+  tags = { Name = "${var.vpc_name}-public-rt" }
+}
+
+resource "aws_route" "public_default_route" {
+  route_table_id         = aws_route_table.public_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+}
+
+resource "aws_route_table_association" "public_assoc" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public_rt.id
+}
+```
+
+`variables.tf` (example):
+
+```hcl
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  type    = string
+  default = "10.0.1.0/24"
+}
+
+variable "vpc_name" {
+  type    = string
+  default = "tf-day7-vpc"
+}
+
+variable "avail_zone" {
+  type    = string
+  default = "us-east-1a"
+}
+```
+
+`outputs.tf`:
+
+```hcl
+output "vpc_id" {
+  value = aws_vpc.this.id
+}
+
+output "public_subnet_id" {
+  value = aws_subnet.public.id
+}
+```
+
+---
+
+### 5) Run Terraform (commands)
+
+From `day07-vpc-terraform/`:
+
+```bash
+terraform init
+terraform plan -out plan.tfplan
+terraform apply -auto-approve plan.tfplan
+# or
+terraform apply -auto-approve
+```
+
+To remove:
+
+```bash
+terraform destroy -auto-approve
+```
+
+---
+
+### 6) Verify with AWS CLI (LocalStack)
+
+Use the LocalStack endpoint to check created resources:
+
+```bash
+aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 describe-subnets --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 describe-route-tables --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 describe-internet-gateways --profile localstack
+```
+
+You should see the VPC/subnet/route table/IGW created by Terraform.
+
+---
+
+### 7) Manual CLI equivalents (for comparison)
+
+These are the rough CLI commands that Terraform automates:
+
+```bash
+# create VPC
+aws --endpoint-url=http://localhost:4566 ec2 create-vpc --cidr-block 10.0.0.0/16 --profile localstack
+
+# create subnet
+aws --endpoint-url=http://localhost:4566 ec2 create-subnet --vpc-id <VPC_ID> --cidr-block 10.0.1.0/24 --profile localstack
+
+# create igw and attach
+aws --endpoint-url=http://localhost:4566 ec2 create-internet-gateway --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 attach-internet-gateway --internet-gateway-id <IGW_ID> --vpc-id <VPC_ID> --profile localstack
+
+# create route table, route, association
+aws --endpoint-url=http://localhost:4566 ec2 create-route-table --vpc-id <VPC_ID> --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 create-route --route-table-id <RT_ID> --destination-cidr-block 0.0.0.0/0 --gateway-id <IGW_ID> --profile localstack
+aws --endpoint-url=http://localhost:4566 ec2 associate-route-table --subnet-id <SUBNET_ID> --route-table-id <RT_ID> --profile localstack
+```
+
+**Notes on comparison**
+
+- CLI is imperative and quick for one-off tasks. You must manage deletion/updates manually.
+- Terraform is declarative, stores state, is idempotent, supports `plan` to preview, and is easier to reuse/modify.
+- Terraform can detect drift and reapply desired state; CLI changes need manual tracking.
+
+---
+
 ## Learn More
 
 - [DevOpsXLabs](https://www.devopsxlabs.com/labs)
