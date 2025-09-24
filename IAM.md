@@ -163,25 +163,25 @@ Output:
    - Note: The policy ARN will be returned in the output for future reference.
 
    ```json
-   aws --endpoint-url=http://localhost:4566 iam create-policy --policy-name S3ReadOnly --policy-document file://readonly-s3.json --profile localstack
    {
-    "Policy": {
-        "PolicyName": "S3ReadOnly",
-        "PolicyId": "ANRXFSM7E93O38ILP9FQY",
-        "Arn": "arn:aws:iam::000000000000:policy/S3ReadOnly",
-        "Path": "/",
-        "DefaultVersionId": "v1",
-        "AttachmentCount": 0,
-        "IsAttachable": true,
-        "CreateDate": "2025-09-24T15:16:52.362609+00:00",
-        "UpdateDate": "2025-09-24T15:16:52.362612+00:00"
-    }
+     "Policy": {
+       "PolicyName": "S3ReadOnly",
+       "PolicyId": "ANRXFSM7E93O38ILP9FQY",
+       "Arn": "arn:aws:iam::000000000000:policy/S3ReadOnly",
+       "Path": "/",
+       "DefaultVersionId": "v1",
+       "AttachmentCount": 0,
+       "IsAttachable": true,
+       "CreateDate": "2025-09-24T15:16:52.362609+00:00",
+       "UpdateDate": "2025-09-24T15:16:52.362612+00:00"
+     }
    }
    ```
 
 5. **Create an IAM Role and Attach a Policy:**
 
    - Roles are ideal for temporary access. First, create a trust policy JSON file named `trust-policy.json` to define who can assume the role (e.g., an EC2 service principal for demonstration):
+
      ```json
      {
        "Version": "2012-10-17",
@@ -196,13 +196,47 @@ Output:
        ]
      }
      ```
+
    - Create the role:
+
      ```
      aws --endpoint-url=http://localhost:4566 iam create-role \
        --role-name s3-readonly-role \
        --assume-role-policy-document file://trust-policy.json \
        --profile localstack
      ```
+
+   - Verify: `aws --endpoint-url=http://localhost:4566 iam list-roles --profile localstack`
+
+   output:
+
+   ```json
+   {
+     "Roles": [
+       {
+         "Path": "/",
+         "RoleName": "s3-readonly-role",
+         "RoleId": "AROAQAAAAAAAGNVS2W2BX",
+         "Arn": "arn:aws:iam::000000000000:role/s3-readonly-role",
+         "CreateDate": "2025-09-24T15:51:33.377611+00:00",
+         "AssumeRolePolicyDocument": {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Effect": "Allow",
+               "Principal": {
+                 "Service": "ec2.amazonaws.com"
+               },
+               "Action": "sts:AssumeRole"
+             }
+           ]
+         },
+         "MaxSessionDuration": 3600
+       }
+     ]
+   }
+   ```
+
    - Attach the custom S3ReadOnly policy to the role (replace `<POLICY_ARN>` with the ARN from step 4):
      ```
      aws --endpoint-url=http://localhost:4566 iam attach-role-policy \
@@ -210,6 +244,15 @@ Output:
        --policy-arn <POLICY_ARN> \
        --profile localstack
      ```
+
+   Here its:
+
+   ```
+    aws --endpoint-url=http://localhost:4566 iam attach-role-policy \
+      --role-name s3-readonly-role \
+      --policy-arn arn:aws:iam::000000000000:policy/S3ReadOnly \
+      --profile localstack
+   ```
 
 6. **Verification Steps:**
    - List users: `aws --endpoint-url=http://localhost:4566 iam list-users --profile localstack`
