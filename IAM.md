@@ -2,6 +2,8 @@
 
 IAM serves as the foundational security mechanism in AWS, enabling precise control over access to resources.s.
 
+[![IAM](public/IAM.png)]
+
 #### Concepts to Learn
 
 - **IAM (Identity and Access Management):** The core AWS service for managing authentication and authorization, ensuring secure access to AWS resources.
@@ -249,9 +251,9 @@ Output:
 
    ```
     aws --endpoint-url=http://localhost:4566 iam attach-role-policy \
-      --role-name s3-readonly-role \
-      --policy-arn arn:aws:iam::000000000000:policy/S3ReadOnly \
-      --profile localstack
+   --role-name s3-readonly-role \
+   --policy-arn arn:aws:iam::000000000000:policy/S3ReadOnly \
+   --profile localstack
    ```
 
 6. **Verification Steps:**
