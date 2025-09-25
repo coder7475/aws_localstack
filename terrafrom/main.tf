@@ -1,3 +1,4 @@
+// S3
 resource "aws_s3_bucket" "mybucket" {
   bucket = "day6-terraform-bucket"
   tags = {
@@ -6,6 +7,63 @@ resource "aws_s3_bucket" "mybucket" {
   }
 }
 
+// IAM
+resource "aws_iam_user" "dev" {
+  name = "dev-user"
+}
+
+resource "aws_iam_group" "dev_group" {
+  name = "dev-group"
+}
+
+resource "aws_iam_group_membership" "team" {
+  name = "dev-team"
+  users = [aws_iam_user.dev.name]
+  group = aws_iam_group.dev_group.name
+}
+
+// Attack a predefined policy
+resource "aws_iam_group_policy_attachment" "s3_full" {
+  group      = aws_iam_group.dev_group.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+// create a policy
+resource "aws_iam_policy" "s3_readonly" {
+  name        = "S3ReadOnly"
+  description = "Read-only access to S3"
+  policy      = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:Get*", "s3:List*"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+// create a role
+resource "aws_iam_role" "s3_readonly_role" {
+  name               = "s3-readonly-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "ec2.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+// attack the policy
+resource "aws_iam_role_policy_attachment" "s3_readonly_attach" {
+  role       = aws_iam_role.s3_readonly_role.name
+  policy_arn = aws_iam_policy.s3_readonly.arn
+}
 
 // VPC
 resource "aws_vpc" "my_vpc" {
