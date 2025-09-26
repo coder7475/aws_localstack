@@ -128,8 +128,8 @@ resource "aws_eip" "nat_eip" {
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public.id
-  depends_on    = [aws_internet_gateway.igw]  
+  subnet_id     = aws_subnet.public_subnet.id
+  depends_on    = [aws_internet_gateway.IGW]  
   tags = {
     Name = "Main NAT Gateway"
   }
@@ -137,19 +137,19 @@ resource "aws_nat_gateway" "nat" {
 
 // Route Table for Private Subnet
 resource "aws_route_table" "private_route_table" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.my_vpc.id
   tags = {
     Name = "${var.vpc_name}-private-route-table"
   }
 }
 
 resource "aws_route" "private_internet_access" {
-  route_table_id         = aws_route_table.private.id
+  route_table_id         = aws_route_table.private_route_table.id
   destination_cidr_block = var.public_route
   nat_gateway_id         = aws_nat_gateway.nat.id
 }
 
 resource "aws_route_table_association" "private_assoc" {
-  subnet_id      = aws_subnet.private.id
-  route_table_id = aws_route_table.private.id
+  subnet_id      = aws_subnet.private_subnet.id
+  route_table_id = aws_route_table.private_route_table.id
 }
