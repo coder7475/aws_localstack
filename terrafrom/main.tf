@@ -73,7 +73,6 @@ resource "aws_vpc" "my_vpc" {
   }
 }
 
-
 // Public Subnet
 resource "aws_subnet" "public_subnet" {
   vpc_id            = aws_vpc.my_vpc.id
@@ -84,13 +83,23 @@ resource "aws_subnet" "public_subnet" {
   }
 }
 
+// Private Subnet
+resource "aws_subnet" "private_subnet" {
+  vpc_id = aws_vpc.my_vpc.id
+  cidr_block = var.private_subnet_cidr
+  availability_zone = var.avail_zone
+  tags = {
+    Name = "${var.vpc_name}-private-subnet"
+  }
+}
+
 // Internet Gateway
 resource "aws_internet_gateway" "IGW" {
   vpc_id = aws_vpc.my_vpc.id
   tags = { Name = "${var.vpc_name}-igw"}
 }
 
-// Public Route Table
+// Public Route Table 
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.my_vpc.id
   tags = { Name = "${var.vpc_name}-public-route-table"}
@@ -107,4 +116,40 @@ resource "aws_route" "public_default_route" {
 resource "aws_route_table_association" "public_route_association" {
   subnet_id = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_route_table.id
+}
+
+// NAT Gateway with Elastic IP
+resource "aws_eip" "nat_eip" {
+  domain = "vpc"  
+  tags = {
+    Name = "NAT EIP"
+  }
+}
+
+resource "aws_nat_gateway" "nat" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public.id
+  depends_on    = [aws_internet_gateway.igw]  
+  tags = {
+    Name = "Main NAT Gateway"
+  }
+}
+
+// Route Table for Private Subnet
+resource "aws_route_table" "private_route_table" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "${var.vpc_name}-private-route-table"
+  }
+}
+
+resource "aws_route" "private_internet_access" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = var.public_route
+  nat_gateway_id         = aws_nat_gateway.nat.id
+}
+
+resource "aws_route_table_association" "private_assoc" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
 }

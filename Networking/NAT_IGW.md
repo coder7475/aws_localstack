@@ -16,6 +16,10 @@ Acquire a comprehensive understanding of public and private networking in AWS th
    - Public Subnet: Routes traffic directly to the Internet Gateway for internet access.
    - Private Subnet: Routes outbound traffic through the NAT Gateway (located in the public subnet) to the Internet Gateway, ensuring secure, one-way connectivity.
 
+### Architecture
+
+[![Architecture](./../public/public-private.png)]
+
 ## Step 2: Environment Preparation
 
 Ensure the following prerequisites are met:
@@ -23,12 +27,6 @@ Ensure the following prerequisites are met:
 - Terraform installed (version 1.0 or later recommended).
 - AWS CLI configured with valid credentials.
 - LocalStack installed and running for local simulation (to avoid AWS costs; use `localstack start` to initialize).
-
-Create a dedicated project directory:
-
-```bash
-mkdir day9-nat-igw && cd day9-nat-igw
-```
 
 ## Step 3: Terraform Configuration Development
 
