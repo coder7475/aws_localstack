@@ -291,10 +291,20 @@ resource "aws_network_acl" "public_nacl" {
     to_port    = 443
   }
 
-  # Allow ephemeral return traffic
+  # Allow ephemeral return traffic (TCP)
   ingress {
-    protocol   = "-1"
+    protocol   = "tcp"
     rule_no    = 200
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Allow ephemeral return traffic (UDP)
+  ingress {
+    protocol   = "udp"
+    rule_no    = 210
     action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 1024
@@ -349,10 +359,20 @@ resource "aws_network_acl" "private_nacl" {
     to_port    = 3306
   }
 
-  # Allow ephemeral return traffic
+  # Allow ephemeral return traffic (TCP)
   ingress {
-    protocol   = "-1"
+    protocol   = "tcp"
     rule_no    = 200
+    action     = "allow"
+    cidr_block = aws_vpc.my_vpc.cidr_block
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Allow ephemeral return traffic (UDP)
+  ingress {
+    protocol   = "udp"
+    rule_no    = 210
     action     = "allow"
     cidr_block = aws_vpc.my_vpc.cidr_block
     from_port  = 1024
