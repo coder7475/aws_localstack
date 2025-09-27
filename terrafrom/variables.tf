@@ -28,3 +28,15 @@ variable "public_route" {
   type = string
   default = "0.0.0.0/0"
 }
+
+variable "ami_id" {
+  default = "ami-12345678"  # Replace with a valid AMI ID for your region
+}
+
+variable "instance_type" {
+  default = "t2.micro"
+}
+
+variable "key_name" {
+  default = "your-key-pair"  # Replace with your SSH key pair name
+}

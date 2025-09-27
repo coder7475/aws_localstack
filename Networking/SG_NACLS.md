@@ -205,55 +205,24 @@ resource "aws_route_table_association" "private_assoc" {
 
 For the bastion pattern, create separate security groups: one for the public (bastion) instance allowing inbound SSH, and one for the private instance allowing SSH only from the bastion's security group.
 
-👉 Terraform snippet (add to `main.tf`):
+## 🔹 Why Two NACLs?
+
+- **Public Subnet (Bastion / Load Balancer / Public Web)**
+  Needs inbound SSH/HTTP/HTTPS from the internet.
+- **Private Subnet (App / DB)**
+  Should not be directly accessible from the internet. Only allow traffic from inside the VPC (e.g., from bastion or ALB).
+
+---
+
+## ✅ Terraform Example
+
+### 1. **Public NACL** (for bastion or web servers)
 
 ```hcl
-resource "aws_security_group" "bastion_sg" {
-  vpc_id = aws_vpc.main.id
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Restrict to your IP in production, e.g., ["203.0.113.0/24"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "BastionSecurityGroup"
-  }
-}
+resource "aws_network_acl" "public_nacl" {
+  vpc_id = aws_vpc.my_vpc.id
 
-resource "aws_security_group" "private_sg" {
-  vpc_id = aws_vpc.main.id
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id]  # Allow SSH only from bastion
-  }
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # For web traffic; restrict as needed
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "PrivateSecurityGroup"
-  }
-}
-
-resource "aws_network_acl" "main_nacl" {
-  vpc_id = aws_vpc.main.id
+  # Allow all outbound
   egress {
     protocol   = "-1"
     rule_no    = 100
@@ -262,6 +231,8 @@ resource "aws_network_acl" "main_nacl" {
     from_port  = 0
     to_port    = 0
   }
+
+  # Allow inbound SSH (⚠ restrict to admin IPs in real prod)
   ingress {
     protocol   = "tcp"
     rule_no    = 100
@@ -270,6 +241,8 @@ resource "aws_network_acl" "main_nacl" {
     from_port  = 22
     to_port    = 22
   }
+
+  # Allow inbound HTTP
   ingress {
     protocol   = "tcp"
     rule_no    = 110
@@ -278,29 +251,124 @@ resource "aws_network_acl" "main_nacl" {
     from_port  = 80
     to_port    = 80
   }
+
+  # Allow inbound HTTPS
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 120
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  # Allow ephemeral return traffic
   ingress {
     protocol   = "-1"
     rule_no    = 200
     action     = "allow"
-    cidr_block = "0.0.0.0/0"  # Allow ephemeral ports for return traffic
+    cidr_block = "0.0.0.0/0"
     from_port  = 1024
     to_port    = 65535
   }
+
   tags = {
-    Name = "MainNACL"
+    Name = "PublicNACL"
   }
 }
+```
 
-resource "aws_network_acl_association" "public_nacl_assoc" {
-  network_acl_id = aws_network_acl.main_nacl.id
-  subnet_id      = aws_subnet.public.id
-}
+---
 
-resource "aws_network_acl_association" "private_nacl_assoc" {
-  network_acl_id = aws_network_acl.main_nacl.id
-  subnet_id      = aws_subnet.private.id
+### 2. **Private NACL** (for app/db servers)
+
+```hcl
+resource "aws_network_acl" "private_nacl" {
+  vpc_id = aws_vpc.my_vpc.id
+
+  # Allow all outbound
+  egress {
+    protocol   = "-1"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
+  }
+
+  # Allow inbound SSH only from within the VPC (e.g., bastion)
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = aws_vpc.my_vpc.cidr_block
+    from_port  = 22
+    to_port    = 22
+  }
+
+  # Allow inbound HTTP (if private servers are behind an ALB)
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 110
+    action     = "allow"
+    cidr_block = aws_vpc.my_vpc.cidr_block
+    from_port  = 80
+    to_port    = 80
+  }
+
+  # Allow inbound DB traffic (example: MySQL on 3306) only within VPC
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 120
+    action     = "allow"
+    cidr_block = aws_vpc.my_vpc.cidr_block
+    from_port  = 3306
+    to_port    = 3306
+  }
+
+  # Allow ephemeral return traffic
+  ingress {
+    protocol   = "-1"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = aws_vpc.my_vpc.cidr_block
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  tags = {
+    Name = "PrivateNACL"
+  }
 }
 ```
+
+---
+
+### 3. **Associations**
+
+```hcl
+# Associate Public NACL
+resource "aws_network_acl_association" "public_assoc" {
+  network_acl_id = aws_network_acl.public_nacl.id
+  subnet_id      = aws_subnet.public_subnet.id
+}
+
+# Associate Private NACL
+resource "aws_network_acl_association" "private_assoc" {
+  network_acl_id = aws_network_acl.private_nacl.id
+  subnet_id      = aws_subnet.private_subnet.id
+}
+```
+
+---
+
+## 🔹 End Result
+
+- **Public Subnet (bastion/web)** → can accept traffic from the internet (SSH, HTTP, HTTPS).
+- **Private Subnet (app/db)** → only accepts traffic **within the VPC** (bastion, ALB, other internal services).
+
+This setup mirrors a **3-tier architecture**:
+🌍 Internet → Public Subnet (ALB / Bastion) → Private Subnet (App/DB).
 
 Note: NACLs are stateless, so include rules for return traffic (ephemeral ports). Always test rules to avoid locking yourself out.
 
