@@ -1,7 +1,7 @@
 {
   "version": 4,
   "terraform_version": "1.13.3",
-  "serial": 117,
+  "serial": 114,
   "lineage": "fdf5a9eb-081b-de78-612f-9a6ce92baaad",
   "outputs": {
     "IGW_id": {
@@ -527,6 +527,156 @@
           "dependencies": [
             "aws_eip.nat_eip",
             "aws_internet_gateway.IGW",
+            "aws_subnet.public_subnet",
+            "aws_vpc.my_vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_network_acl",
+      "name": "private_nacl",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:us-east-1:000000000000:network-acl/acl-2f326bd8d4ced27ef",
+            "egress": [
+              {
+                "action": "allow",
+                "cidr_block": "0.0.0.0/0",
+                "from_port": 0,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "-1",
+                "rule_no": 100,
+                "to_port": 0
+              }
+            ],
+            "id": "acl-2f326bd8d4ced27ef",
+            "ingress": [
+              {
+                "action": "allow",
+                "cidr_block": "10.0.0.0/16",
+                "from_port": 1024,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "tcp",
+                "rule_no": 200,
+                "to_port": 65535
+              },
+              {
+                "action": "allow",
+                "cidr_block": "10.0.0.0/16",
+                "from_port": 1024,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "udp",
+                "rule_no": 210,
+                "to_port": 65535
+              },
+              {
+                "action": "allow",
+                "cidr_block": "10.0.0.0/16",
+                "from_port": 22,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "tcp",
+                "rule_no": 100,
+                "to_port": 22
+              },
+              {
+                "action": "allow",
+                "cidr_block": "10.0.0.0/16",
+                "from_port": 3306,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "tcp",
+                "rule_no": 120,
+                "to_port": 3306
+              },
+              {
+                "action": "allow",
+                "cidr_block": "10.0.0.0/16",
+                "from_port": 80,
+                "icmp_code": null,
+                "icmp_type": null,
+                "ipv6_cidr_block": "",
+                "protocol": "tcp",
+                "rule_no": 110,
+                "to_port": 80
+              }
+            ],
+            "owner_id": "000000000000",
+            "subnet_ids": [],
+            "tags": {
+              "Name": "PrivateNACL"
+            },
+            "tags_all": {
+              "Name": "PrivateNACL"
+            },
+            "vpc_id": "vpc-b7cf6abbe6aa464ba"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_vpc.my_vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_network_acl_association",
+      "name": "private_assoc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 0,
+          "attributes": {
+            "id": "aclassoc-72967475853fe7db4",
+            "network_acl_id": "acl-2f326bd8d4ced27ef",
+            "subnet_id": "subnet-0f0ec621e81ca59fa"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_network_acl.private_nacl",
+            "aws_subnet.private_subnet",
+            "aws_vpc.my_vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_network_acl_association",
+      "name": "public_assoc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 0,
+          "attributes": {
+            "id": "aclassoc-9f0f94b5e4bdf797a",
+            "network_acl_id": "acl-9b939b91cbaefda45",
+            "subnet_id": "subnet-6a328267701596e32"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_network_acl.public_nacl",
             "aws_subnet.public_subnet",
             "aws_vpc.my_vpc"
           ]

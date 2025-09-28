@@ -30,7 +30,7 @@ variable "public_route" {
 }
 
 variable "ami_id" {
-  default = "ami-12345678"  # Replace with a valid AMI ID for your region
+  default = "ami-ff0fea8310f3" # ubuntu-20 focal fossa  
 }
 
 variable "instance_type" {

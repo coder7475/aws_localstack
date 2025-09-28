@@ -56,6 +56,12 @@ localstack logs
 
 By default, services run on port **4566**.
 
+Check info:
+
+```bash
+curl http://localhost:4566/_localstack/info | jq
+```
+
 ---
 
 ### 4. Configure AWS CLI for LocalStack

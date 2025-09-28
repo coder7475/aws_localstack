@@ -419,3 +419,16 @@ resource "aws_instance" "private_ec2" {
     Name = "PrivateEC2"
   }
 }
+
+// CloudWatch
+resource "aws_instance" "monitored_ec2" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  monitoring                  = true   # Enables detailed monitoring
+  subnet_id                   = aws_subnet.public_subnet.id
+  associate_public_ip_address = true
+
+  tags = {
+    Name = "MonitoredEC2"
+  }
+}

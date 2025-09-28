@@ -1,4 +1,4 @@
-# 🔐 **Day 10–12 Combined: Networking & EC2 in Terraform**
+# Networking & EC2 in Terraform\*\*
 
 ### **Concepts Covered**
 
