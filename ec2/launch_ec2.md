@@ -10,132 +10,130 @@ To emulate an Amazon Elastic Compute Cloud (EC2) instance on a local machine usi
 - Install the LocalStack CLI via Python's package manager: `pip install localstack`.
 - Basic familiarity with command-line tools and AWS CLI syntax is assumed.
 
+Here’s your guide updated to use the **`aws` CLI** (instead of `awslocal`) with a **LocalStack profile**. I also added the necessary `--endpoint-url` and `--profile localstack` flags so the commands work with LocalStack:
+
 ### Step-by-Step Instructions to Run an EC2 Instance Locally
 
-1. **Set Up the LocalStack Environment**  
-   Export the LocalStack authentication token as an environment variable to activate the Pro features:
+1. **Set Up the LocalStack Environment**
 
-   ```
-   export LOCALSTACK_AUTH_TOKEN=your-auth-token-here
-   ```
+```bash
+export LOCALSTACK_AUTH_TOKEN=your-auth-token-here
+localstack start
+curl http://localhost:4566/_localstack/info | jq
+```
 
-   Start the LocalStack container:
+Confirm output shows `"edition": "pro"` and `"is_license_activated": true`.
 
-   ```
-   localstack start
-   ```
+---
 
-   Verify the setup by querying the LocalStack information endpoint:
+2. **Create an EC2 Key Pair**
 
-   ```
-   curl http://localhost:4566/_localstack/info | jq
-   ```
+```bash
+aws ec2 create-key-pair \
+  --key-name my-key \
+  --query 'KeyMaterial' \
+  --output text \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack | tee key.pem
 
-   Confirm that the output indicates `"edition": "pro"` and `"is_license_activated": true`.
+chmod 400 key.pem
+```
 
-2. **Create an EC2 Key Pair**  
-   Generate a new key pair for SSH access to the emulated instance and save the private key material to a file:
+Or import an existing public key:
 
-   ```
-   awslocal ec2 create-key-pair --key-name my-key --query 'KeyMaterial' --output text | tee key.pem
-   ```
+```bash
+aws ec2 import-key-pair \
+  --key-name my-key \
+  --public-key-material file://~/.ssh/id_rsa.pub \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack
+```
 
-   Secure the private key file by setting appropriate permissions:
+---
 
-   ```
-   chmod 400 key.pem
-   ```
+3. **Get the Default Security Group**
 
-   Alternatively, if using an existing SSH public key (e.g., from `~/.ssh/id_rsa.pub`), import it:
+```bash
+sg_id=$(aws ec2 describe-security-groups \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack | jq -r '.SecurityGroups[0].GroupId')
 
-   ```
-   awslocal ec2 import-key-pair --key-name my-key --public-key-material file://~/.ssh/id_rsa.pub
-   ```
+echo "Security Group ID: $sg_id"
+```
 
-3. **Configure the Default Security Group**  
-   Retrieve the ID of the default security group:
+_Note: The default security group allows SSH access (port 22) by default in LocalStack._
 
-   ```
-   sg_id=$(awslocal ec2 describe-security-groups | jq -r '.SecurityGroups[0].GroupId')
-   ```
+---
 
-   Authorize inbound traffic on a specified port (e.g., port 8000 for a web server example):
+4. **Launch the EC2 Instance**
 
-   ```
-   awslocal ec2 authorize-security-group-ingress --group-id default --protocol tcp --port 8000 --cidr 0.0.0.0/0
-   ```
+AMI for ubuntu-22.04-jammy-jellyfish: ami-df5de72bdb3b
 
-   Note that LocalStack currently supports only the default security group and limits ingress rules to up to 32 ports to avoid host port exhaustion.
+```bash
+aws ec2 run-instances \
+  --image-id ami-df5de72bdb3b \
+  --count 1 \
+  --instance-type t3.nano \
+  --key-name my-key \
+  --security-group-ids $sg_id \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack
+```
 
-4. **Prepare a User Data Script**  
-   Create a shell script file named `user_script.sh` to execute upon instance launch. This example installs dependencies and starts a simple Python web server:
+_Note: Instance type has no functional impact in LocalStack. For Amazon Linux, use AMI `ami-024f768332f0`._
 
-   ```
-   #!/bin/bash -xeu
-   apt update
-   apt install python3 -y
-   python3 -m http.server 8000
-   ```
+---
 
-   Save the file and ensure it is executable if needed.
+5. **Verify the Instance Status**
 
-5. **Launch the EC2 Instance**  
-   Run the instance using the prepared key pair, security group, and user data script. Use a supported Amazon Machine Image (AMI) ID, such as `ami-ff0fea8310f3` for Ubuntu 20.04:
+```bash
+docker ps
+instance_id=$(aws ec2 describe-instances \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack | jq -r '.Reservations[0].Instances[0].InstanceId')
 
-   ```
-   awslocal ec2 run-instances --image-id ami-ff0fea8310f3 --count 1 --instance-type t3.nano --key-name my-key --security-group-ids $sg_id --user-data file://./user_script.sh
-   ```
+aws ec2 describe-instances \
+  --instance-ids $instance_id \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack | jq
+```
 
-   Note: The instance type (e.g., `t3.nano`) has no functional impact in emulation, as LocalStack uses a fixed Docker image. For Amazon Linux, use AMI ID `ami-024f768332f0` and adjust the script to use `yum` instead of `apt`.
+---
 
-6. **Verify the Instance Status**  
-   Confirm the emulated instance is running by listing Docker containers:
+6. **Get the Instance Public IP Address**
 
-   ```
-   docker ps
-   ```
+```bash
+public_ip=$(aws ec2 describe-instances \
+  --instance-ids $instance_id \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack | jq -r '.Reservations[0].Instances[0].PublicIpAddress')
 
-   The container name will resemble `ec2-instance-i-0b0f1f2f3f4f5f6f7`.  
-   Retrieve the instance ID:
+echo "Public IP: $public_ip"
+```
 
-   ```
-   instance_id=$(awslocal ec2 describe-instances | jq -r '.Reservations[0].Instances[0].InstanceId')
-   ```
+---
 
-   Describe the instance to obtain details, including IP addresses:
+7. **Access the Instance via SSH**
 
-   ```
-   awslocal ec2 describe-instances --instance-ids $instance_id | jq
-   ```
+```bash
+ssh -i key.pem ubuntu@$public_ip
+```
 
-   The output will include a private IP (e.g., `10.0.2.15`) and public IP (e.g., `172.17.0.3`).
+Or if you prefer to use the IP directly:
 
-7. **Access the Instance via SSH**  
-   Establish an SSH connection using the private key and the instance's public IP address (default username is `ubuntu` for Ubuntu-based AMIs):
+```bash
+ssh -i key.pem ubuntu@<public-ip-address>
+```
 
-   ```
-   ssh -i key.pem ubuntu@<public-ip-address>
-   ```
+_Note: Replace `<public-ip-address>` with the actual IP address from the previous step._
 
-   Replace `<public-ip-address>` with the value from the previous step.
+---
 
-8. **Test the Running Application**  
-   If the user data script starts a service (e.g., a web server on port 8000), LocalStack maps the container's port to a high port on the host (typically in the 46000-47000 range). Inspect the Docker container to find the mapped port:
+8. **Terminate the Instance**
 
-   ```
-   docker inspect <container-id> | jq '.[0].NetworkSettings.Ports'
-   ```
-
-   Access the service via the host's mapped port, for example:
-
-   ```
-   curl http://localhost:<mapped-port>/
-   ```
-
-9. **Terminate the Instance**  
-   When testing is complete, terminate the instance to stop the emulation:
-   ```
-   awslocal ec2 terminate-instances --instance-ids $instance_id
-   ```
-
-These steps enable local emulation of an EC2 instance without interacting with actual AWS resources, facilitating cost-effective development and testing. For advanced configurations, consult the official LocalStack documentation.
+```bash
+aws ec2 terminate-instances \
+  --instance-ids $instance_id \
+  --endpoint-url=http://localhost:4566 \
+  --profile localstack
+```
