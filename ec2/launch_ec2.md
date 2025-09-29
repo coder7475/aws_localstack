@@ -39,16 +39,6 @@ aws ec2 create-key-pair \
 chmod 400 key.pem
 ```
 
-Or import an existing public key:
-
-```bash
-aws ec2 import-key-pair \
-  --key-name my-key \
-  --public-key-material file://~/.ssh/id_rsa.pub \
-  --endpoint-url=http://localhost:4566 \
-  --profile localstack
-```
-
 ---
 
 3. **Get the Default Security Group**
@@ -116,13 +106,7 @@ echo "Public IP: $public_ip"
 7. **Access the Instance via SSH**
 
 ```bash
-ssh -i key.pem ubuntu@$public_ip
-```
-
-Or if you prefer to use the IP directly:
-
-```bash
-ssh -i key.pem ubuntu@<public-ip-address>
+ssh -i key.pem root@$public_ip
 ```
 
 _Note: Replace `<public-ip-address>` with the actual IP address from the previous step._
