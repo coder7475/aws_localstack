@@ -1,72 +1,82 @@
-# **CloudWatch Basics – Monitor EC2 Logs & Metrics**
-
-## Goal for the Day
-
-Understand how **Amazon CloudWatch** collects, stores, and visualizes **logs and metrics** for EC2 instances, and practice sending logs + monitoring metrics.
+Here’s an improved and more concise version of your CloudWatch guide. I’ve focused on clarity, flow, and readability while keeping all essential steps and commands:
 
 ---
 
-## **Step 1: Theoretical Foundation**
+# Amazon CloudWatch: Monitoring EC2 Logs and Metrics
 
-1. **CloudWatch Metrics**
+## Objective
 
-   - Numerical data points (CPU utilization, memory, network traffic).
-   - Default EC2 metrics: CPUUtilization, DiskReadOps, DiskWriteOps, NetworkIn, NetworkOut.
-   - Custom metrics can be pushed from applications.
-
-2. **CloudWatch Logs**
-
-   - Log groups (containers for logs).
-   - Log streams (individual streams, usually one per instance).
-   - Agent required to push OS/application logs to CloudWatch.
-
-3. **CloudWatch Alarms**
-
-   - Triggered when a metric breaches a threshold.
-   - Can send notifications via **SNS** or trigger an action.
+Learn how Amazon CloudWatch collects, stores, and visualizes logs and metrics for EC2 instances, and configure monitoring and log collection using Terraform, AWS CLI, or LocalStack.
 
 ---
 
-## **Step 2: Environment Setup**
+## 1. Conceptual Overview
 
-- Terraform installed.
-- AWS CLI configured (or **LocalStack** for practice – but logs are limited there).
-- One running EC2 instance (from Day 11/12 setup).
+### 1.1 Metrics
+
+- **Definition**: Numerical data points representing system performance (CPU, memory, network traffic).
+- **Default EC2 Metrics**: CPUUtilization, DiskReadOps, DiskWriteOps, NetworkIn, NetworkOut.
+- **Custom Metrics**: Applications can publish custom metrics for specialized monitoring.
+
+### 1.2 Logs
+
+- **Log Groups**: Containers to organize logs.
+- **Log Streams**: Individual sequences of log events (usually per EC2 instance).
+- **Agent Requirement**: CloudWatch Agent forwards system/application logs to CloudWatch.
+
+### 1.3 Alarms
+
+- **Functionality**: Monitor metrics and trigger actions when thresholds are breached.
+- **Actions**: Send notifications via SNS or trigger automated responses like scaling.
 
 ---
 
-## **Step 3: Enable EC2 Metrics**
+## 2. Environment Preparation
 
-EC2 instances publish **basic metrics** automatically to CloudWatch every 5 minutes.
-To enable **detailed monitoring** (1-minute intervals):
+- Terraform installed and configured.
+- AWS CLI set up, or LocalStack for local testing.
+- One running EC2 instance.
+
+---
+
+## 3. Enable EC2 Metrics Collection
+
+EC2 automatically publishes basic metrics every 5 minutes. Enable detailed monitoring for 1-minute granularity.
 
 ```hcl
 resource "aws_instance" "monitored_ec2" {
-  ami                         = "ami-12345678"
+  ami                         = "ami-df5de72bdb3b"
   instance_type               = "t2.micro"
-  monitoring                  = true   # Enables detailed monitoring
+  monitoring                  = true
   subnet_id                   = aws_subnet.public.id
   associate_public_ip_address = true
 
-  tags = {
-    Name = "MonitoredEC2"
-  }
+  tags = { Name = "MonitoredEC2" }
 }
 ```
 
-👉 After deployment, go to **CloudWatch Console → Metrics → EC2 → Per-Instance Metrics** to view CPUUtilization, NetworkIn, etc.
+**Verify:** CloudWatch Console → Metrics → EC2 → Per-Instance Metrics.
 
 ---
 
-## **Step 4: Install & Configure CloudWatch Agent (for Logs)**
+## 4. Install and Configure CloudWatch Agent (Logs)
 
-SSH into the EC2 instance and install the CloudWatch agent:
+### Connect to EC2
 
 ```bash
-sudo yum install -y amazon-cloudwatch-agent
+ssh -i monitored-key root@<publicIP>
 ```
 
-Create a config file `/opt/aws/amazon-cloudwatch-agent/bin/config.json`:
+### Install Agent
+
+```bash
+wget https://amazoncloudwatch-agent.s3.amazonaws.com/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+sudo dpkg -i amazon-cloudwatch-agent.deb
+```
+
+### Configure Logs
+
+`/opt/aws/amazon-cloudwatch-agent/bin/config.json`:
 
 ```json
 {
@@ -86,20 +96,20 @@ Create a config file `/opt/aws/amazon-cloudwatch-agent/bin/config.json`:
 }
 ```
 
-Start the agent:
+### Start Agent
 
 ```bash
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
 ```
 
-👉 Logs should now appear in CloudWatch **Log Groups**.
+**Verify:** CloudWatch → Log Groups → EC2-SystemLogs.
 
 ---
 
-## **Step 5: Create a CloudWatch Alarm**
+## 5. Configure a CloudWatch Alarm
 
-Terraform example for CPU utilization alarm:
+### Terraform Example
 
 ```hcl
 resource "aws_cloudwatch_metric_alarm" "high_cpu" {
@@ -111,37 +121,78 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
   period              = 60
   statistic           = "Average"
   threshold           = 80
-  alarm_description   = "This metric monitors EC2 CPU usage"
-  dimensions = {
-    InstanceId = aws_instance.monitored_ec2.id
-  }
+  dimensions = { InstanceId = aws_instance.monitored_ec2.id }
 }
 ```
 
 ---
 
-## **Step 6: Validation**
+## 6. LocalStack Example (AWS CLI)
 
-- Stress test CPU on EC2:
+### Create Log Group
 
 ```bash
-sudo yum install -y stress
+aws logs create-log-group --log-group-name EC2-SystemLogs \
+  --endpoint-url=http://localhost:4566 --profile localstack
+```
+
+### Create Log Stream
+
+```bash
+aws logs create-log-stream --log-group-name EC2-SystemLogs --log-stream-name test-stream \
+  --endpoint-url=http://localhost:4566 --profile localstack
+```
+
+### Push Logs
+
+```bash
+aws logs put-log-events --log-group-name EC2-SystemLogs --log-stream-name test-stream \
+  --log-events timestamp=$(date +%s%3N),message="Hello LocalStack CloudWatch!" \
+  --endpoint-url=http://localhost:4566 --profile localstack
+```
+
+### List Groups/Streams
+
+```bash
+aws logs describe-log-groups --endpoint-url=http://localhost:4566 --profile localstack
+aws logs describe-log-streams --log-group-name EC2-SystemLogs --endpoint-url=http://localhost:4566 --profile localstack
+aws logs get-log-events --log-group-name EC2-SystemLogs --log-stream-name test-stream --endpoint-url=http://localhost:4566 --profile localstack
+```
+
+---
+
+## 7. Testing and Validation
+
+### Stress Test
+
+```bash
+apt install -y stress
 stress --cpu 2 --timeout 60
 ```
 
-- Watch CloudWatch → Metrics → CPUUtilization.
-- Verify logs under **Log Groups → EC2-SystemLogs**.
+**Verify:**
+
+- CPU metrics: CloudWatch → Metrics → EC2 → CPUUtilization
+- Logs: CloudWatch → Log Groups → EC2-SystemLogs
+- Alarm triggers if CPU > 80% for 2 consecutive periods.
+
+**Comparison:**
+
+- Metrics: Numerical performance indicators.
+- Logs: Detailed event data for troubleshooting.
 
 ---
 
-- Compare CloudWatch Logs vs Metrics.
+## Deliverables
+
+- EC2 instance with detailed monitoring.
+- CloudWatch Agent forwarding logs.
+- CloudWatch Alarm monitoring CPU.
 
 ---
 
-✅ **End of Day 13 Deliverables**
+## References
 
-- One EC2 instance with detailed monitoring enabled.
-- CloudWatch Agent configured to push system logs.
-- A CloudWatch Alarm set up to monitor CPU usage.
-
-### References
+- [AWS CloudWatch Documentation](https://docs.aws.amazon.com/cloudwatch/)
+- [CloudWatch Agent Setup](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html)
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
